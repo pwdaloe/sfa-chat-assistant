@@ -23,6 +23,7 @@ export type SfaSession = Scenes.WizardSession & {
   pendingCategory?: string
   pendingSkuId?: string
   pendingSkuName?: string
+  orderPhase?: 'CATEGORY' | 'SKU' | 'QTY' | 'CART' | 'AWAITING_MANUAL_QTY'
 }
 
 export interface SfaContext extends Context {
