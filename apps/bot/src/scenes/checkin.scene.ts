@@ -286,3 +286,13 @@ export const checkInScene = new Scenes.WizardScene(
   stepConfirmCustomer,
   stepCustomerSummary
 ) as unknown as Scenes.WizardScene<SfaContext>
+
+// Global escape — /menu atau /cancel keluar dari scene
+;(checkInScene as any).command('menu', async (ctx: SfaContext) => {
+  await ctx.scene.leave()
+  await ctx.reply('Kunjungan dibatalkan. Ketik /menu untuk kembali ke menu utama.')
+})
+;(checkInScene as any).command('cancel', async (ctx: SfaContext) => {
+  await ctx.scene.leave()
+  await ctx.reply('Kunjungan dibatalkan.')
+})

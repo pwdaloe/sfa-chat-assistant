@@ -310,3 +310,14 @@ export const orderScene = new Scenes.WizardScene(
   stepQty,
   stepCartReview
 ) as unknown as Scenes.WizardScene<SfaContext>
+
+;(orderScene as any).command('menu', async (ctx: SfaContext) => {
+  ctx.session.cart = []
+  await ctx.scene.leave()
+  await ctx.reply('Order dibatalkan. Ketik /menu untuk kembali ke menu utama.')
+})
+;(orderScene as any).command('cancel', async (ctx: SfaContext) => {
+  ctx.session.cart = []
+  await ctx.scene.leave()
+  await ctx.reply('Order dibatalkan.')
+})
