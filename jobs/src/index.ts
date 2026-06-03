@@ -1,8 +1,10 @@
-import { Queue, Worker, QueueScheduler } from 'bullmq'
-import { Redis } from 'ioredis'
+import { Queue, Worker } from 'bullmq'
 import pino from 'pino'
 import { AcumaticaAdapter, AcumaticaClient } from '@sfa/erp-adapter'
 import { syncARJob } from './sync-ar.job'
+import { syncPricelistJob } from './sync-pricelist.job'
+import { syncProductsJob } from './sync-products.job'
+import { syncCustomersJob } from './sync-customers.job'
 
 const logger = pino({ level: process.env.LOG_LEVEL ?? 'info' })
 
@@ -16,14 +18,14 @@ const JOB_NAMES = {
   NOTIFY_SUPERVISOR_EOD: 'notify:supervisor-eod'
 } as const
 
-async function main() {
-  const connection = new Redis({
-    host: process.env.REDIS_HOST ?? 'localhost',
-    port: Number(process.env.REDIS_PORT ?? 6379),
-    password: process.env.REDIS_PASSWORD,
-    maxRetriesPerRequest: null  // diperlukan oleh BullMQ
-  })
+// Plain object — hindari konflik versi ioredis antara BullMQ dan app
+const redisConnection = {
+  host: process.env.REDIS_HOST ?? 'localhost',
+  port: Number(process.env.REDIS_PORT ?? 6379),
+  password: process.env.REDIS_PASSWORD || undefined
+}
 
+async function main() {
   const acumaticaClient = new AcumaticaClient({
     baseUrl: process.env.ACUMATICA_BASE_URL!,
     company: process.env.ACUMATICA_COMPANY!,
@@ -34,7 +36,7 @@ async function main() {
   const erpAdapter = new AcumaticaAdapter(acumaticaClient)
 
   const queue = new Queue('sfa-jobs', {
-    connection,
+    connection: redisConnection,
     defaultJobOptions: {
       attempts: 3,
       backoff: { type: 'exponential', delay: 5000 },
@@ -44,15 +46,14 @@ async function main() {
   })
 
   // ─── Schedule recurring jobs ───────────────────────────────────────────────
-  await queue.upsertJobScheduler(JOB_NAMES.SYNC_AR, { pattern: '0 */2 * * *' })           // tiap 2 jam
-  await queue.upsertJobScheduler(JOB_NAMES.SYNC_PRICELIST, { pattern: '0 */6 * * *' })    // tiap 6 jam
-  await queue.upsertJobScheduler(JOB_NAMES.SYNC_PRODUCTS, { pattern: '0 */12 * * *' })    // tiap 12 jam
-  await queue.upsertJobScheduler(JOB_NAMES.SYNC_CUSTOMERS, { pattern: '0 2 * * *' })      // jam 02:00
-
-  // Notifikasi supervisor — WIB (UTC+7), cron dalam UTC
-  await queue.upsertJobScheduler(JOB_NAMES.NOTIFY_SUPERVISOR_MORNING, { pattern: '0 1 * * 1-6' })   // 08:00 WIB
-  await queue.upsertJobScheduler(JOB_NAMES.NOTIFY_SUPERVISOR_MIDDAY, { pattern: '0 6 * * 1-6' })    // 13:00 WIB
-  await queue.upsertJobScheduler(JOB_NAMES.NOTIFY_SUPERVISOR_EOD, { pattern: '30 10 * * 1-6' })     // 17:30 WIB
+  await queue.upsertJobScheduler(JOB_NAMES.SYNC_AR,        { pattern: '0 */2 * * *' })
+  await queue.upsertJobScheduler(JOB_NAMES.SYNC_PRICELIST, { pattern: '0 */6 * * *' })
+  await queue.upsertJobScheduler(JOB_NAMES.SYNC_PRODUCTS,  { pattern: '0 */12 * * *' })
+  await queue.upsertJobScheduler(JOB_NAMES.SYNC_CUSTOMERS, { pattern: '0 2 * * *' })
+  // Notifikasi supervisor WIB (UTC+7) → UTC
+  await queue.upsertJobScheduler(JOB_NAMES.NOTIFY_SUPERVISOR_MORNING, { pattern: '0 1 * * 1-6' })
+  await queue.upsertJobScheduler(JOB_NAMES.NOTIFY_SUPERVISOR_MIDDAY,  { pattern: '0 6 * * 1-6' })
+  await queue.upsertJobScheduler(JOB_NAMES.NOTIFY_SUPERVISOR_EOD,     { pattern: '30 10 * * 1-6' })
 
   // ─── Worker ───────────────────────────────────────────────────────────────
   const worker = new Worker(
@@ -62,24 +63,28 @@ async function main() {
 
       switch (job.name) {
         case JOB_NAMES.SYNC_AR:
-          await syncARJob(job, erpAdapter)
-          break
+          await syncARJob(job, erpAdapter); break
 
         case JOB_NAMES.SYNC_PRICELIST:
+          await syncPricelistJob(job, erpAdapter); break
+
         case JOB_NAMES.SYNC_PRODUCTS:
+          await syncProductsJob(job, erpAdapter); break
+
         case JOB_NAMES.SYNC_CUSTOMERS:
+          await syncCustomersJob(job, erpAdapter); break
+
         case JOB_NAMES.NOTIFY_SUPERVISOR_MORNING:
         case JOB_NAMES.NOTIFY_SUPERVISOR_MIDDAY:
         case JOB_NAMES.NOTIFY_SUPERVISOR_EOD:
-          // Sprint 1-3 akan implementasi jobs ini
-          logger.info({ jobName: job.name }, 'Job handler not yet implemented')
+          logger.info({ jobName: job.name }, 'Supervisor notify — Sprint 3')
           break
 
         default:
           logger.warn({ jobName: job.name }, 'Unknown job')
       }
     },
-    { connection, concurrency: 3 }
+    { connection: redisConnection, concurrency: 3 }
   )
 
   worker.on('completed', (job) => logger.info({ jobName: job.name, jobId: job.id }, 'Job completed'))
@@ -87,7 +92,7 @@ async function main() {
 
   logger.info('Job workers started')
 
-  process.once('SIGINT', async () => { await worker.close(); await queue.close() })
+  process.once('SIGINT',  async () => { await worker.close(); await queue.close() })
   process.once('SIGTERM', async () => { await worker.close(); await queue.close() })
 }
 

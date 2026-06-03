@@ -263,8 +263,9 @@ async function stepCustomerSummary(ctx: SfaContext) {
   const cb = (ctx.callbackQuery as any)?.data as string | undefined
 
   if (cb === 'action:order') {
-    await ctx.reply('Memulai order... (Sprint 2)')
-    return ctx.scene.leave()
+    ctx.session.cart = []  // reset cart sebelum order baru
+    await ctx.scene.leave()
+    return ctx.scene.enter('ORDER')
   }
 
   if (cb === 'action:log_only') {

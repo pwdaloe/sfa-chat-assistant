@@ -1,4 +1,5 @@
 import { checkInScene } from './checkin.scene'
+import { orderScene } from './order.scene'
 import { adminScene } from './admin.scene'
 
 export const SCENE_IDS = {
@@ -7,4 +8,4 @@ export const SCENE_IDS = {
   ADMIN: 'ADMIN'
 } as const
 
-export const allScenes = [checkInScene, adminScene]
+export const allScenes = [checkInScene, orderScene, adminScene]

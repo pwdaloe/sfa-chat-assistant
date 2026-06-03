@@ -19,6 +19,10 @@ export type SfaSession = Scenes.WizardSession & {
   currentCustomerId?: string
   currentCustomerName?: string
   cart?: Array<{ skuId: string; skuName: string; qty: number; unitPrice: number; discountPct: number }>
+  // Order scene
+  pendingCategory?: string
+  pendingSkuId?: string
+  pendingSkuName?: string
 }
 
 export interface SfaContext extends Context {
