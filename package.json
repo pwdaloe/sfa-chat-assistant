@@ -1,0 +1,23 @@
+{
+  "name": "sfa-chat-assistant",
+  "private": true,
+  "version": "0.0.1",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "scripts": {
+    "dev:bot": "pnpm --filter @sfa/bot dev",
+    "dev:api": "pnpm --filter @sfa/api dev",
+    "dev:jobs": "pnpm --filter @sfa/jobs dev",
+    "db:migrate": "pnpm --filter @sfa/db migrate:dev",
+    "db:migrate:prod": "pnpm --filter @sfa/db migrate:deploy",
+    "db:generate": "pnpm --filter @sfa/db generate",
+    "db:studio": "pnpm --filter @sfa/db studio",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

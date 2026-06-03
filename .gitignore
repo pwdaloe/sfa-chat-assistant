@@ -1,0 +1,26 @@
+node_modules/
+dist/
+
+# Environment — JANGAN pernah commit file ini
+.env
+.env.*
+!.env.example
+
+# Prisma
+packages/db/prisma/migrations/.env
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# pnpm
+.pnpm-store/

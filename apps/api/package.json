@@ -1,0 +1,26 @@
+{
+  "name": "@sfa/api",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "dotenv -e ../../.env -- ts-node-dev --respawn --transpile-only src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sfa/db": "workspace:*",
+    "@sfa/shared": "workspace:*",
+    "@sfa/bot": "workspace:*",
+    "fastify": "^4.27.0",
+    "@fastify/formbody": "^7.4.0",
+    "ioredis": "^5.3.0",
+    "pino": "^9.2.0"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^7.4.0",
+    "typescript": "^5.4.0",
+    "ts-node-dev": "^2.0.0",
+    "@types/node": "^20.0.0"
+  }
+}

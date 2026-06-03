@@ -1,0 +1,292 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  SALESPERSON
+  SUPERVISOR
+  BACKOFFICE
+}
+
+enum ARStatus {
+  CLEAR
+  WARNING
+  OVERDUE
+}
+
+enum OrderStatus {
+  DRAFT
+  CONFIRMED
+  PENDING_APPROVAL
+  APPROVED
+  QUEUED_SYNC
+  SYNCED
+  SYNC_FAILED
+}
+
+enum ApprovalType {
+  DISCOUNT
+  ORDER_EDIT
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum SyncJobStatus {
+  RUNNING
+  SUCCESS
+  PARTIAL
+  FAILED
+}
+
+enum VisitFrequency {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+}
+
+// ─── Users & Roles ────────────────────────────────────────────────────────────
+
+model User {
+  id               String  @id @default(uuid())
+  telegramId       BigInt  @unique @map("telegram_id")
+  telegramUsername String? @map("telegram_username")
+  fullName         String  @map("full_name")
+  role             Role
+  supervisorId     String? @map("supervisor_id")
+  acumaticaUserId  String? @map("acumatica_user_id")
+  isActive         Boolean @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  supervisor          User?               @relation("UserSupervisor", fields: [supervisorId], references: [id])
+  subordinates        User[]              @relation("UserSupervisor")
+  customerAssignments CustomerAssignment[]
+  visits              Visit[]
+  requestedApprovals  ApprovalRequest[]   @relation("RequestedBy")
+  assignedApprovals   ApprovalRequest[]   @relation("AssignedTo")
+  orderEdits          OrderEditHistory[]
+
+  @@map("users")
+}
+
+// ─── Customer & Route ─────────────────────────────────────────────────────────
+
+model CustomerAssignment {
+  id                  String   @id @default(uuid())
+  customerAcumaticaId String   @map("customer_acumatica_id")
+  customerName        String   @map("customer_name")
+  customerAddress     String?  @map("customer_address")
+  customerPhone       String?  @map("customer_phone")
+  gpsLat              Decimal? @map("gps_lat") @db.Decimal(10, 8)
+  gpsLng              Decimal? @map("gps_lng") @db.Decimal(11, 8)
+  salespersonId       String   @map("salesperson_id")
+  isActive            Boolean  @default(true) @map("is_active")
+
+  salesperson User    @relation(fields: [salespersonId], references: [id])
+  routes      Route[]
+
+  @@unique([customerAcumaticaId, salespersonId])
+  @@map("customer_assignments")
+}
+
+model Route {
+  id                   String         @id @default(uuid())
+  salespersonId        String         @map("salesperson_id")
+  customerAssignmentId String         @map("customer_assignment_id")
+  dayOfWeek            Int            @map("day_of_week")
+  visitSequence        Int            @map("visit_sequence")
+  visitFrequency       VisitFrequency @default(WEEKLY) @map("visit_frequency")
+
+  customerAssignment CustomerAssignment @relation(fields: [customerAssignmentId], references: [id])
+
+  @@unique([salespersonId, customerAssignmentId, dayOfWeek])
+  @@map("routes")
+}
+
+// ─── Product & Pricelist Cache ────────────────────────────────────────────────
+
+model Product {
+  id       String  @id @default(uuid())
+  skuId    String  @unique @map("sku_id")
+  skuName  String  @map("sku_name")
+  category String
+  isActive Boolean @default(true) @map("is_active")
+  syncedAt DateTime @map("synced_at")
+
+  orderItems     OrderItem[]
+  pricelistCache PricelistCache[]
+
+  @@map("products")
+}
+
+model PricelistCache {
+  id                  String    @id @default(uuid())
+  customerAcumaticaId String    @map("customer_acumatica_id")
+  skuId               String    @map("sku_id")
+  skuName             String    @map("sku_name")
+  unitPrice           Decimal   @map("unit_price") @db.Decimal(15, 2)
+  uom                 String    @default("KARTON")
+  validFrom           DateTime? @map("valid_from")
+  validTo             DateTime? @map("valid_to")
+  syncedAt            DateTime  @map("synced_at")
+
+  product Product @relation(fields: [skuId], references: [skuId])
+
+  @@unique([customerAcumaticaId, skuId])
+  @@map("pricelist_cache")
+}
+
+// ─── AR Cache ─────────────────────────────────────────────────────────────────
+
+model ARCache {
+  id                  String    @id @default(uuid())
+  customerAcumaticaId String    @unique @map("customer_acumatica_id")
+  totalOutstanding    Decimal   @default(0) @map("total_outstanding") @db.Decimal(15, 2)
+  totalOverdue        Decimal   @default(0) @map("total_overdue") @db.Decimal(15, 2)
+  oldestDueDate       DateTime? @map("oldest_due_date")
+  invoiceCount        Int       @default(0) @map("invoice_count")
+  arStatus            ARStatus  @default(CLEAR) @map("ar_status")
+  syncedAt            DateTime  @map("synced_at")
+  syncJobId           String?   @map("sync_job_id")
+
+  invoices ARInvoiceCache[]
+
+  @@map("ar_cache")
+}
+
+model ARInvoiceCache {
+  id                  String   @id @default(uuid())
+  customerAcumaticaId String   @map("customer_acumatica_id")
+  invoiceNumber       String   @map("invoice_number")
+  invoiceDate         DateTime @map("invoice_date")
+  dueDate             DateTime @map("due_date")
+  amount              Decimal  @db.Decimal(15, 2)
+  amountPaid          Decimal  @default(0) @map("amount_paid") @db.Decimal(15, 2)
+  balance             Decimal  @db.Decimal(15, 2)
+  syncedAt            DateTime @map("synced_at")
+
+  arCache ARCache @relation(fields: [customerAcumaticaId], references: [customerAcumaticaId])
+
+  @@unique([customerAcumaticaId, invoiceNumber])
+  @@map("ar_invoice_cache")
+}
+
+// ─── Visits & Orders ──────────────────────────────────────────────────────────
+
+model Visit {
+  id                  String    @id @default(uuid())
+  salespersonId       String    @map("salesperson_id")
+  customerAcumaticaId String    @map("customer_acumatica_id")
+  customerName        String    @map("customer_name")
+  checkinAt           DateTime  @map("checkin_at")
+  checkoutAt          DateTime? @map("checkout_at")
+  gpsLat              Decimal?  @map("gps_lat") @db.Decimal(10, 8)
+  gpsLng              Decimal?  @map("gps_lng") @db.Decimal(11, 8)
+  outOfRoute          Boolean   @default(false) @map("out_of_route")
+  notes               String?
+  photoUrl            String?   @map("photo_url")
+  createdAt           DateTime  @default(now()) @map("created_at")
+
+  salesperson User    @relation(fields: [salespersonId], references: [id])
+  orders      Order[]
+
+  @@map("visits")
+}
+
+model Order {
+  id                String      @id @default(uuid())
+  visitId           String      @map("visit_id")
+  status            OrderStatus @default(DRAFT)
+  acumaticaSoNumber String?     @map("acumatica_so_number")
+  syncedAt          DateTime?   @map("synced_at")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  visit           Visit             @relation(fields: [visitId], references: [id])
+  items           OrderItem[]
+  approvalRequest ApprovalRequest?
+  editHistory     OrderEditHistory[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id                 String    @id @default(uuid())
+  orderId            String    @map("order_id")
+  skuId              String    @map("sku_id")
+  qty                Int
+  unitPrice          Decimal   @map("unit_price") @db.Decimal(15, 2)
+  discountPct        Decimal   @default(0) @map("discount_pct") @db.Decimal(5, 2)
+  discountApprovedBy String?   @map("discount_approved_by")
+  discountApprovedAt DateTime? @map("discount_approved_at")
+
+  order   Order   @relation(fields: [orderId], references: [id])
+  product Product @relation(fields: [skuId], references: [skuId])
+
+  @@map("order_items")
+}
+
+// ─── Approval ─────────────────────────────────────────────────────────────────
+
+model ApprovalRequest {
+  id            String         @id @default(uuid())
+  orderId       String         @unique @map("order_id")
+  requestedById String         @map("requested_by")
+  assignedToId  String         @map("assigned_to")
+  type          ApprovalType
+  payload       Json
+  status        ApprovalStatus @default(PENDING)
+  expiresAt     DateTime       @map("expires_at")
+  respondedAt   DateTime?      @map("responded_at")
+  responseNote  String?        @map("response_note")
+  telegramMsgId BigInt?        @map("telegram_msg_id")
+  createdAt     DateTime       @default(now()) @map("created_at")
+
+  order       Order @relation(fields: [orderId], references: [id])
+  requestedBy User  @relation("RequestedBy", fields: [requestedById], references: [id])
+  assignedTo  User  @relation("AssignedTo", fields: [assignedToId], references: [id])
+
+  @@map("approval_requests")
+}
+
+model OrderEditHistory {
+  id         String   @id @default(uuid())
+  orderId    String   @map("order_id")
+  editedById String   @map("edited_by")
+  fieldPath  String?  @map("field_path")
+  oldValue   String?  @map("old_value")
+  newValue   String?  @map("new_value")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  order     Order @relation(fields: [orderId], references: [id])
+  editedBy  User  @relation(fields: [editedById], references: [id])
+
+  @@map("order_edit_history")
+}
+
+// ─── Sync Jobs ────────────────────────────────────────────────────────────────
+
+model SyncJob {
+  id           String        @id @default(uuid())
+  jobType      String        @map("job_type")
+  status       SyncJobStatus
+  totalRecords Int?          @map("total_records")
+  successCount Int?          @map("success_count")
+  failCount    Int?          @map("fail_count")
+  errorSummary String?       @map("error_summary")
+  startedAt    DateTime      @default(now()) @map("started_at")
+  finishedAt   DateTime?     @map("finished_at")
+
+  @@map("sync_jobs")
+}
