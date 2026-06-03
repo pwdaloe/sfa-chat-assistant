@@ -23,12 +23,13 @@ async function main() {
     logger.info({ webhookPath }, 'Webhook set')
     // Webhook handler di-mount ke Fastify di apps/api
   } else {
-    await bot.launch()
+    // bot.launch() bersifat blocking — jangan di-await
+    bot.launch().catch(err => logger.error({ err }, 'Bot crashed'))
     logger.info('Bot started (polling mode)')
   }
 
-  process.once('SIGINT', () => bot.stop('SIGINT'))
-  process.once('SIGTERM', () => bot.stop('SIGTERM'))
+  process.once('SIGINT', () => { logger.info('Shutting down...'); bot.stop('SIGINT') })
+  process.once('SIGTERM', () => { logger.info('Shutting down...'); bot.stop('SIGTERM') })
 }
 
 main().catch((err) => {

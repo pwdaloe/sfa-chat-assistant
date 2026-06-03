@@ -26,7 +26,7 @@ function cartHasItem(cart: CartItem[], skuId: string): boolean {
 // ─── Step 0: Category Menu ────────────────────────────────────────────────────
 
 async function stepCategory(ctx: SfaContext): Promise<void> {
-  await ctx.answerCbQuery?.()
+  if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => {})
   const cb = (ctx.callbackQuery as any)?.data as string | undefined
 
   if (cb === 'order:cancel') {
@@ -70,7 +70,7 @@ async function stepCategory(ctx: SfaContext): Promise<void> {
 // ─── Step 1: SKU Selection ────────────────────────────────────────────────────
 
 async function stepSKU(ctx: SfaContext) {
-  await ctx.answerCbQuery?.()
+  if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => {})
   const cb = (ctx.callbackQuery as any)?.data as string | undefined
 
   if (cb === 'order:back_category') {
@@ -113,9 +113,8 @@ async function stepSKU(ctx: SfaContext) {
 // ─── Step 2: Quantity Input ───────────────────────────────────────────────────
 
 async function stepQty(ctx: SfaContext) {
-  await ctx.answerCbQuery?.()
+  if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => {})
   const cb = (ctx.callbackQuery as any)?.data as string | undefined
-  const msg = ctx.message as any
 
   if (cb === 'order:back_sku') {
     // Simulasi kembali ke step 1 dengan kategori yang sama
@@ -165,7 +164,7 @@ async function stepQty(ctx: SfaContext) {
 // ─── Step 3: Cart Review ──────────────────────────────────────────────────────
 
 async function stepCartReview(ctx: SfaContext) {
-  await ctx.answerCbQuery?.()
+  if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => {})
   const cb = (ctx.callbackQuery as any)?.data as string | undefined
   const msg = ctx.message as any
 

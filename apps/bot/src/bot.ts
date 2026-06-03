@@ -51,9 +51,10 @@ export function createBot(redis: Redis): Telegraf<SfaContext> {
     }
   }))
 
+  // Auth dulu — ctx.user tersedia di semua scene & command handlers
+  bot.use(authMiddleware)
   const stage = new Scenes.Stage(allScenes as any)
   bot.use(stage.middleware() as any)
-  bot.use(authMiddleware)
 
   // ─── /start ───────────────────────────────────────────────────────────────
   bot.start(async (ctx) => {

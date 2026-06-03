@@ -114,7 +114,7 @@ async function stepMainMenu(ctx: SfaContext) {
 // ─── Step 1: Find Customer ────────────────────────────────────────────────────
 
 async function stepFindCustomer(ctx: SfaContext) {
-  await ctx.answerCbQuery?.()
+  if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => {})
 
   const cb = (ctx.callbackQuery as any)?.data as string | undefined
   const msg = ctx.message as any
@@ -214,7 +214,7 @@ async function stepFindCustomer(ctx: SfaContext) {
 // ─── Step 2: Confirm Customer ─────────────────────────────────────────────────
 
 async function stepConfirmCustomer(ctx: SfaContext) {
-  await ctx.answerCbQuery?.()
+  if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => {})
   const cb = (ctx.callbackQuery as any)?.data as string | undefined
 
   if (cb === 'cancel') {
@@ -259,7 +259,7 @@ async function stepConfirmCustomer(ctx: SfaContext) {
 // ─── Step 3: Customer Summary ─────────────────────────────────────────────────
 
 async function stepCustomerSummary(ctx: SfaContext) {
-  await ctx.answerCbQuery?.()
+  if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => {})
   const cb = (ctx.callbackQuery as any)?.data as string | undefined
 
   if (cb === 'action:order') {
