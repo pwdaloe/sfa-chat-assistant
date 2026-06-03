@@ -72,6 +72,8 @@ Edit `.env` — wajib diisi:
 | `REDIS_PASSWORD` | Password Redis |
 | `BOT_TOKEN` | Token dari [@BotFather](https://t.me/BotFather) |
 | `ACUMATICA_*` | Kredensial Acumatica (boleh dummy untuk dev) |
+| `SEED_TELEGRAM_ID` | Telegram ID untuk seed data salesperson (dari [@userinfobot](https://t.me/userinfobot)) |
+| `SEED_SPV_TELEGRAM_ID` | Telegram ID untuk seed data supervisor |
 | `SEED_TELEGRAM_ID` | Telegram ID untuk seed data salesperson |
 | `SEED_SPV_TELEGRAM_ID` | Telegram ID untuk seed data supervisor |
 
@@ -107,10 +109,26 @@ Buka Telegram → kirim `/start` ke bot → `/menu` → **🏪 Mulai Kunjungan**
 |---|---|---|
 | **0** | Foundation: monorepo, Docker, bot skeleton, ERP adapter | ✅ Done |
 | **1** | Route & Check-in flow (GPS + manual + rute harian) | ✅ Done |
-| **2** | Order Entry (guided flow, cart, staging DB) | 🔜 Next |
-| **3** | Supervisor Daily Recap (digest 3x/hari) | 🔜 |
+| **2** | Order Entry (guided flow, cart, staging DB) | ✅ Done |
+| **3** | Supervisor Daily Recap (digest 3x/hari) | 🔜 Next |
 | **4** | Simplified Approval (Approve/Reject diskon) | 🔜 |
 | **5** | Hardening & UAT | 🔜 |
+
+### Flow yang sudah bisa ditest (Sprint 0–2)
+
+```
+/menu
+ └─ 🏪 Mulai Kunjungan
+     ├─ 📋 Rute Hari Ini   → daftar toko sesuai hari
+     ├─ 📍 Deteksi Lokasi  → toko terdekat (GPS)
+     └─ 🔍 Cari Nama Toko  → search by name
+         └─ Konfirmasi toko → tampil AR + last visit
+             └─ 🛒 Buat Order
+                 └─ Pilih kategori → Pilih SKU + harga
+                     └─ Input qty → Tambah ke cart
+                         └─ Review cart → ✅ Konfirmasi
+                             └─ Order tersimpan di DB (CONFIRMED)
+```
 
 ## Arsitektur ERP Adapter
 
@@ -138,11 +156,13 @@ class OtherERPAdapter implements IERPAdapter { ... }
 ## Perintah Umum
 
 ```bash
-pnpm dev:bot          # Jalankan bot (polling mode)
-pnpm dev:api          # Jalankan API server
-pnpm db:migrate       # Jalankan migrasi database
-pnpm db:studio        # Buka Prisma Studio (GUI database)
-pnpm typecheck        # Cek TypeScript di semua package
+pnpm dev:bot                   # Jalankan bot (polling mode)
+pnpm dev:api                   # Jalankan API server
+pnpm db:migrate                # Jalankan migrasi database
+pnpm db:studio                 # Buka Prisma Studio (GUI database)
+pnpm --filter @sfa/db seed     # Isi test data (customer, rute, produk, harga)
+pnpm typecheck                 # Cek TypeScript di semua package
+docker-compose restart redis   # Reset session (gunakan jika bot stuck)
 ```
 
 ## Aktivasi User Baru
